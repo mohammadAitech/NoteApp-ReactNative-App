@@ -1,57 +1,66 @@
-name: Build Android APK/AAB
+name: Build Android (APK & AAB)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
-  workflow_dispatch: # این اجازه می‌ده دستی هم اجراش کنی
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🔧 Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: ⚙️ Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
-      - name: 📦 Install dependencies
-        run: npm cli
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-      - name: 📂 Setup local.properties (SDK path)
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Android dependencies (Gradle wrapper)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew || true
+          ./gradlew --version
+
+      # اگر نسخه‌یت/پروژه‌ات نیاز به local.properties با SDK path دارد:
+      - name: Write android/local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-      - name: 🏗 Build Android Release (APK)
-        run: |
-          cd android
-          ./gradlew assembleRelease
+      # Build APK (Release)
+      - name: Build APK (Release)
+        working-directory: android
+        run: ./gradlew assembleRelease
 
-      - name: 🏗 Build Android Release (AAB)
-        run: |
-          cd android
-          ./gradlew bundleRelease
+      # Build AAB (Release)
+      - name: Build AAB (Release)
+        working-directory: android
+        run: ./gradlew bundleRelease
 
-      - name: 📤 Upload APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
-      - name: 📤 Upload AAB artifact
+      - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
