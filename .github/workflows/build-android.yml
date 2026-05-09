@@ -1,0 +1,66 @@
+name: Build Android (APK & AAB)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Android dependencies (Gradle wrapper)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew || true
+          ./gradlew --version
+
+      # اگر نسخه‌یت/پروژه‌ات نیاز به local.properties با SDK path دارد:
+      - name: Write android/local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+      # Build APK (Release)
+      - name: Build APK (Release)
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      # Build AAB (Release)
+      - name: Build AAB (Release)
+        working-directory: android
+        run: ./gradlew bundleRelease
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
